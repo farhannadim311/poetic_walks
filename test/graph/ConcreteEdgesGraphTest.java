@@ -42,4 +42,5 @@ public class ConcreteEdgesGraphTest extends GraphInstanceTest {
     
     // TODO tests for operations of Edge
     
+    
 }
