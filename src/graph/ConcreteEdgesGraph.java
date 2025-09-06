@@ -1,48 +1,41 @@
-/* Copyright (c) 2015-2016 MIT 6.005 course staff, all rights reserved.
- * Redistribution of original or derived work requires permission of course staff.
- */
 package graph;
 
 import java.util.*;
 
 /**
- * An implementation of Graph.
- *
- * <p>PS2 instructions: you MUST use the provided rep.
+ * An implementation of Graph using a vertex set and a flat list of immutable edges.
  */
-public class ConcreteEdgesGraph implements Graph<String> {
+public class ConcreteEdgesGraph<L> implements Graph<L> {
 
     // ----- Rep -----
-    private final Set<String> vertices = new HashSet<>();
-    private final List<Edge> edges = new ArrayList<>();
+    private final Set<L> vertices = new HashSet<>();
+    private final List<Edge<L>> edges = new ArrayList<>();
 
     // ----- AF / RI / Safety -----
-    // Abstraction Function:
-    //   AF(vertices, edges) = a directed, weighted graph G=(V,E)
-    //     where V = exactly the strings in `vertices`,
-    //     and E = { (e.source, e.target, e.weight) | e in `edges`, weight > 0 }.
-    //   Every endpoint named by an edge is also in V. Self-loops allowed.
-
-    // Representation Invariant:
-    //   1) vertices != null, edges != null
-    //   2) no nulls in vertices; no null edges; edge endpoints non-null
-    //   3) every edge has weight > 0
-    //   4) every edge’s endpoints are in vertices
-    //   5) no parallel duplicates: at most one edge per (source,target)
-
-    // Safety from rep exposure:
-    //   * Fields are private; we never return them directly.
-    //   * vertices() returns a defensive copy.
-    //   * sources()/targets() return fresh maps.
-    //   * Edge is immutable (final fields, no setters).
+    // AF(vertices, edges) = directed, weighted graph G = (V, E)
+    //   V = exactly the labels in `vertices`
+    //   E = { (e.source, e.target, e.weight) | e in `edges` with weight > 0 }
+    //
+    // RI:
+    //   - vertices != null, edges != null
+    //   - no null vertex; no null edge
+    //   - each edge has non-null endpoints and weight > 0
+    //   - every edge endpoint is in vertices
+    //   - no duplicate parallel edges (at most one per (source,target))
+    //
+    // Safety:
+    //   - never return the mutable reps directly
+    //   - vertices() returns a defensive copy
+    //   - sources()/targets() return fresh maps
+    //   - Edge is immutable
 
     // ----- Constructors -----
 
-    /** No-arg constructor for an empty graph. */
+    /** Empty graph. */
     public ConcreteEdgesGraph() { }
 
-    /** Optional convenience constructor: copies inputs defensively. */
-    public ConcreteEdgesGraph(Set<String> vertices, List<Edge> edges) {
+    /** Optional convenience constructor (defensive copy). */
+    public ConcreteEdgesGraph(Set<L> vertices, List<Edge<L>> edges) {
         if (vertices != null) this.vertices.addAll(vertices);
         if (edges != null)    this.edges.addAll(edges);
         checkRep();
@@ -51,29 +44,29 @@ public class ConcreteEdgesGraph implements Graph<String> {
     // ----- checkRep -----
     private void checkRep() {
         assert this.vertices != null : "vertices set is null";
-        assert this.edges != null : "edges list is null";
+        assert this.edges != null    : "edges list is null";
 
-        for (String v : this.vertices) {
+        for (L v : this.vertices) {
             assert v != null : "null vertex";
         }
 
-        Set<String> seenPairs = new HashSet<>();
-        for (Edge e : this.edges) {
+        Set<Pair<L, L>> seenPairs = new HashSet<>();
+        for (Edge<L> e : this.edges) {
             assert e != null : "null edge";
             assert e.getSource() != null : "null edge source";
             assert e.getTarget() != null : "null edge target";
-            assert e.getWeight() > 0 : "nonpositive weight stored: " + e.getWeight();
+            assert e.getWeight() > 0     : "nonpositive weight stored: " + e.getWeight();
             assert this.vertices.contains(e.getSource()) : "edge source not in vertices";
             assert this.vertices.contains(e.getTarget()) : "edge target not in vertices";
-            String key = e.getSource() + "\u0001" + e.getTarget();
+            Pair<L, L> key = new Pair<>(e.getSource(), e.getTarget());
             assert seenPairs.add(key) : "duplicate edge " + e.getSource() + "->" + e.getTarget();
         }
     }
 
-    // ----- Graph<String> methods -----
+    // ----- Graph<L> methods -----
 
     @Override
-    public boolean add(String vertex) {
+    public boolean add(L vertex) {
         assert vertex != null : "vertex must be non-null";
         if (this.vertices.contains(vertex)) {
             return false;
@@ -84,60 +77,58 @@ public class ConcreteEdgesGraph implements Graph<String> {
     }
 
     @Override
-    public int set(String source, String target, int weight) {
-        // Preconditions
+    public int set(L source, L target, int weight) {
         assert source != null : "source must be non-null";
         assert target != null : "target must be non-null";
-        assert weight >= 0 : "weight must be nonnegative (0 means remove)";
+        assert weight >= 0    : "weight must be nonnegative (0 means remove)";
 
         // Look for existing (source -> target)
-        Iterator<Edge> it = this.edges.iterator();
+        Iterator<Edge<L>> it = this.edges.iterator();
         while (it.hasNext()) {
-            Edge e = it.next();
+            Edge<L> e = it.next();
             if (e.getSource().equals(source) && e.getTarget().equals(target)) {
                 int prev = e.getWeight();
                 if (weight == 0) {
-                    // removal
+                    // remove edge
                     it.remove();
                     checkRep();
                     return prev;
                 } else {
-                    // update: replace (keep Edge immutable)
+                    // update edge (replace to keep Edge immutable)
                     it.remove();
                     this.vertices.add(source);
                     this.vertices.add(target);
-                    this.edges.add(new Edge(source, target, weight));
+                    this.edges.add(new Edge<>(source, target, weight));
                     checkRep();
                     return prev;
                 }
             }
         }
 
-        // Edge not found
+        // No existing edge
         if (weight == 0) {
-            // no-op
             checkRep();
-            return 0;
+            return 0; // no-op
         } else {
-            // add new edge (and auto-add missing vertices)
+            // add new edge; auto-add missing vertices
             this.vertices.add(source);
             this.vertices.add(target);
-            this.edges.add(new Edge(source, target, weight));
+            this.edges.add(new Edge<>(source, target, weight));
             checkRep();
             return 0;
         }
     }
 
     @Override
-    public boolean remove(String vertex) {
+    public boolean remove(L vertex) {
         assert vertex != null : "vertex must be non-null";
         if (!this.vertices.contains(vertex)) {
             return false;
         }
         // remove incident edges
-        Iterator<Edge> it = this.edges.iterator();
+        Iterator<Edge<L>> it = this.edges.iterator();
         while (it.hasNext()) {
-            Edge e = it.next();
+            Edge<L> e = it.next();
             if (vertex.equals(e.getSource()) || vertex.equals(e.getTarget())) {
                 it.remove();
             }
@@ -149,32 +140,32 @@ public class ConcreteEdgesGraph implements Graph<String> {
     }
 
     @Override
-    public Set<String> vertices() {
-        return new HashSet<>(this.vertices); // defensive copy
+    public Set<L> vertices() {
+        return new HashSet<>(this.vertices);
     }
 
     @Override
-    public Map<String, Integer> sources(String target) {
+    public Map<L, Integer> sources(L target) {
         assert target != null : "target must be non-null";
-        Map<String, Integer> result = new HashMap<>();
-        for (Edge e : this.edges) {
+        Map<L, Integer> result = new HashMap<>();
+        for (Edge<L> e : this.edges) {
             if (e.getTarget().equals(target)) {
                 result.put(e.getSource(), e.getWeight());
             }
         }
-        return result; // fresh map
+        return result;
     }
 
     @Override
-    public Map<String, Integer> targets(String source) {
+    public Map<L, Integer> targets(L source) {
         assert source != null : "source must be non-null";
-        Map<String, Integer> result = new HashMap<>();
-        for (Edge e : this.edges) {
+        Map<L, Integer> result = new HashMap<>();
+        for (Edge<L> e : this.edges) {
             if (e.getSource().equals(source)) {
                 result.put(e.getTarget(), e.getWeight());
             }
         }
-        return result; // fresh map
+        return result;
     }
 
     @Override
@@ -183,27 +174,57 @@ public class ConcreteEdgesGraph implements Graph<String> {
     }
 
     // ----- Immutable Edge value object -----
-    static final class Edge {
-        private final String source;
-        private final String target;
+    public static final class Edge<L> {
+        private final L source;
+        private final L target;
         private final int weight;
 
-        Edge(String source, String target, int weight) {
+        public Edge(L source, L target, int weight) {
             assert source != null : "Edge source cannot be null";
             assert target != null : "Edge target cannot be null";
-            assert weight > 0 : "Edge weight must be positive";
+            assert weight > 0     : "Edge weight must be positive";
             this.source = source;
             this.target = target;
             this.weight = weight;
         }
 
-        String getSource() { return source; }
-        String getTarget() { return target; }
-        int getWeight()   { return weight; }
+        public L getSource()  { return source; }
+        public L getTarget()  { return target; }
+        public int getWeight(){ return weight; }
 
         @Override
         public String toString() {
             return source + " -> " + target + " (" + weight + ")";
+        }
+    }
+
+    // ----- Generic Pair for duplicate detection -----
+    public static final class Pair<T1, T2> {
+        public final T1 first;
+        public final T2 second;
+
+        public Pair(T1 first, T2 second) {
+            this.first  = first;
+            this.second = second;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof Pair)) return false; // raw type on instanceof is required
+            Pair<?, ?> other = (Pair<?, ?>) o;
+            return Objects.equals(this.first, other.first)
+                && Objects.equals(this.second, other.second);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(this.first, this.second);
+        }
+
+        @Override
+        public String toString() {
+            return "(" + first + ", " + second + ")";
         }
     }
 }
