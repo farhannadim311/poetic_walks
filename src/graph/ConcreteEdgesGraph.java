@@ -33,6 +33,10 @@ public class ConcreteEdgesGraph<L> implements Graph<L> {
 
     /** Empty graph. */
     public ConcreteEdgesGraph() { }
+    
+    public static <L> Graph<L> empty() {
+        return new ConcreteEdgesGraph<>();   // or new ConcreteVerticesGraph<>()
+    }
 
     /** Optional convenience constructor (defensive copy). */
     public ConcreteEdgesGraph(Set<L> vertices, List<Edge<L>> edges) {
